@@ -79,6 +79,7 @@ export default function ProductPage() {
     min: null,
     max: null,
   });
+
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [availableBrands, setAvailableBrands] = useState<string[]>([]);
@@ -89,8 +90,6 @@ export default function ProductPage() {
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
 
   // UI states
-  const [showBrandFilter, setShowBrandFilter] = useState(true);
-  const [showCategoryFilter, setShowCategoryFilter] = useState(true);
   const [priceInputMin, setPriceInputMin] = useState<string>("");
   const [priceInputMax, setPriceInputMax] = useState<string>("");
   const [priceSliderValue, setPriceSliderValue] = useState<number>(0);
@@ -188,13 +187,14 @@ export default function ProductPage() {
         );
       }
 
-      // Apply price range filter
+      // Fix: Apply price range filter with the correct price comparison
       if (priceRange.min !== null || priceRange.max !== null) {
         filtered = filtered.filter((product) => {
+          const productPriceInRupees = product.price * 85;
           const meetsMinCriteria =
-            priceRange.min === null || product.price >= priceRange.min;
+            priceRange.min === null || productPriceInRupees >= priceRange.min;
           const meetsMaxCriteria =
-            priceRange.max === null || product.price <= priceRange.max;
+            priceRange.max === null || productPriceInRupees <= priceRange.max;
           return meetsMinCriteria && meetsMaxCriteria;
         });
       }
@@ -282,21 +282,33 @@ export default function ProductPage() {
   const handlePriceRangeSubmit = () => {
     const min = priceInputMin ? parseInt(priceInputMin) : null;
     const max = priceInputMax ? parseInt(priceInputMax) : null;
-    setPriceRange({ min, max });
+    setPriceRange({
+      min: min !== null ? min : null, // Remove the division by 85
+      max: max !== null ? max : null, // Remove the division by 85
+    });
   };
 
   // Handle price slider change
-  const handlePriceSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    setPriceSliderValue(value);
+  const handleSliderChange = (
+    event: Event | null,
+    newValue: number | number[]
+  ) => {
+    if (newValue === undefined || newValue === null) return;
 
-    // Update price range based on slider position
-    if (maxPrice) {
-      const calculatedMax = Math.floor((value / 100) * maxPriceValue);
+    const sliderValue = Array.isArray(newValue) ? newValue[0] : newValue;
+    setPriceSliderValue(sliderValue);
+
+    if (maxPriceValue) {
+      // Convert percentage to real price in INR
+      const calculatedMax = Math.floor(
+        (sliderValue / 100) * maxPriceValue * 85
+      );
+
       setPriceRange({
         min: null,
         max: calculatedMax > 0 ? calculatedMax : null,
       });
+
       setPriceInputMax(calculatedMax > 0 ? calculatedMax.toString() : "");
     }
   };
@@ -390,25 +402,13 @@ export default function ProductPage() {
               <div className="mb-4">
                 <Slider
                   value={priceSliderValue}
-                  onChange={(e, newValue) => {
-                    setPriceSliderValue(newValue as number);
-                    if (maxPrice) {
-                      const calculatedMax = Math.floor(
-                        ((newValue as number) / 100) * maxPriceValue
-                      );
-                      setPriceRange({
-                        min: null,
-                        max: calculatedMax > 0 ? calculatedMax : null,
-                      });
-                      setPriceInputMax(
-                        calculatedMax > 0 ? calculatedMax.toString() : ""
-                      );
-                    }
-                  }}
-                  aria-label="Price range"
+                  onChange={handleSliderChange}
+                  aria-label="Price Range"
                   valueLabelDisplay="auto"
                   valueLabelFormat={(value) =>
-                    `₹${Math.floor((value / 100) * maxPriceValue)}`
+                    `₹${Math.floor(
+                      (value / 100) * maxPriceValue * 85
+                    ).toLocaleString()}`
                   }
                 />
               </div>
@@ -423,12 +423,13 @@ export default function ProductPage() {
                     label="Min"
                     onChange={(e) => setPriceInputMin(e.target.value)}
                   >
+                    // In the MenuItem components for Min price
                     <MenuItem value="">Min</MenuItem>
                     <MenuItem value="0">₹0</MenuItem>
-                    <MenuItem value="1000">₹1,000</MenuItem>
-                    <MenuItem value="5000">₹5,000</MenuItem>
                     <MenuItem value="10000">₹10,000</MenuItem>
-                    <MenuItem value="20000">₹20,000</MenuItem>
+                    <MenuItem value="25000">₹25,000</MenuItem>
+                    <MenuItem value="50000">₹50,000</MenuItem>
+                    <MenuItem value="100000">₹1,00,000</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -443,11 +444,12 @@ export default function ProductPage() {
                     label="Max"
                     onChange={(e) => setPriceInputMax(e.target.value)}
                   >
+                    // In the MenuItem components for Max price
                     <MenuItem value="">Max</MenuItem>
-                    <MenuItem value="5000">₹5,000</MenuItem>
-                    <MenuItem value="10000">₹10,000</MenuItem>
-                    <MenuItem value="20000">₹20,000</MenuItem>
-                    <MenuItem value="30000">₹30,000+</MenuItem>
+                    <MenuItem value="25000">₹25,000</MenuItem>
+                    <MenuItem value="50000">₹50,000</MenuItem>
+                    <MenuItem value="100000">₹1,00,000</MenuItem>
+                    <MenuItem value="500000">₹5,00,000+</MenuItem>
                   </Select>
                 </FormControl>
               </div>
@@ -630,7 +632,7 @@ export default function ProductPage() {
                         />
                         <button className="absolute top-2 right-2 p-1 bg-white rounded-full shadow-md"></button>
                         {product.brand && (
-                          <div className="absolute bottom-2 left-2 bg-white px-2 py-1 text-xs font-semibold text-gray-800 rounded shadow-sm">
+                          <div className="absolute right-16  bg-white px-2 py-1 text-xs font-semibold text-gray-800 rounded shadow-sm">
                             {product.brand}
                           </div>
                         )}
@@ -685,16 +687,18 @@ export default function ProductPage() {
                         <div className="mt-auto">
                           <div className="flex items-center mb-2">
                             <span className="text-xl font-bold text-gray-900">
-                              ₹{product.price.toLocaleString()}
+                              ₹{(product.price * 85).toLocaleString()}
                             </span>
 
                             {product.discountPercentage && (
                               <>
                                 <span className="ml-2 text-sm text-gray-500 line-through">
                                   ₹
-                                  {calculateOriginalPrice(
-                                    product.price,
-                                    product.discountPercentage
+                                  {(
+                                    calculateOriginalPrice(
+                                      product.price,
+                                      product.discountPercentage
+                                    ) * 85
                                   ).toLocaleString()}
                                 </span>
                                 <span className="ml-2 text-sm font-medium text-green-600">
