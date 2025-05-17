@@ -23,7 +23,7 @@ const Login: React.FC = () => {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigate("/home");
+      navigate(-1);
     } catch (err: any) {
       setError(err.message || "Failed to sign in.");
     }
